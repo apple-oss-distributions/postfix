@@ -98,6 +98,7 @@
 #include <mymalloc.h>
 #include <namadr_list.h>
 #include <name_mask.h>
+#include <sys/time.h>
 
 /* Global library. */
 
@@ -1878,7 +1879,7 @@ static int sDoCryptAuth ( tDirReference inDirRef, tDirNodeReference inUserNodeRe
 				}
 				else
 				{
-					msg_warn( "AOD: Authentication failed for user %s. (Open Directroy error: %d)", inUserID, dsStatus );
+					msg_warn( "AOD: Authentication failed for user %s. (Open Directory error: %d)", inUserID, dsStatus );
 					iResult = -7;
 				}
 
@@ -2022,13 +2023,13 @@ int sValidateResponse ( const char *inUserID, const char *inChallenge, const cha
 				}
 				else
 				{
-					msg_warn( "AOD: Unable to open user directory node for user %s. (Open Directroy error: %d)", inUserID, dsStatus );
+					msg_warn( "AOD: Unable to open user directory node for user %s. (Open Directory error: %d)", inUserID, dsStatus );
 					iResult = -1;
 				}
 			}
 			else
 			{
-				msg_warn( "AOD: Unable to find user %s. (Open Directroy error: %d)", inUserID, dsStatus );
+				msg_warn( "AOD: Unable to find user %s. (Open Directory error: %d)", inUserID, dsStatus );
 				iResult = -1;
 			}
 			(void)dsCloseDirNode( searchNodeRef );
@@ -2036,7 +2037,7 @@ int sValidateResponse ( const char *inUserID, const char *inChallenge, const cha
 		}
 		else
 		{
-			msg_warn( "AOD: Unable to open directroy search node. (Open Directroy error: %d)", dsStatus );
+			msg_warn( "AOD: Unable to open directroy search node. (Open Directory error: %d)", dsStatus );
 			iResult = -1;
 		}
 		(void)dsCloseDirService( dirRef );
@@ -2044,7 +2045,7 @@ int sValidateResponse ( const char *inUserID, const char *inChallenge, const cha
 	}
 	else
 	{
-		msg_warn( "AOD: Unable to open directroy. (Open Directroy error: %d)", dsStatus );
+		msg_warn( "AOD: Unable to open directroy. (Open Directory error: %d)", dsStatus );
 		iResult = -1;
 	}
 

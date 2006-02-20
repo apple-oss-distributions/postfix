@@ -272,7 +272,7 @@ compare_or_hardlink() {
     (cmp $1 $2 >/dev/null 2>&1 && echo Skipping $2...) || {
 	echo Updating $2...
 	rm -f $2 || exit 1
-	ln $1 $2 || exit 1
+	cp -p $1 $2 || exit 1
     }
 }
 

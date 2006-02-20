@@ -13,6 +13,7 @@ SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 RC_ARCHS=
 CFLAGS=-mdynamic-no-pic -Os $(RC_CFLAGS)
+COMPRESS_PL=/Developer/Makefiles/bin/compress-man-pages.pl
 
 #ENV = \
 #        CFLAGS="-no-cpp-precomp $(RC_CFLAGS)" \
@@ -61,6 +62,10 @@ install : pre-install
 	install -m 0444 $(SRCROOT)/Postfix.OpenSourceInfo/postfix.txt $(DSTROOT)/usr/local/OpenSourceLicenses
 	install -s -m 0755 $(DSTROOT)/usr/sbin/sendmail $(DSTROOT)/usr/bin/newaliases
 	install -s -m 0755 $(DSTROOT)/usr/sbin/sendmail $(DSTROOT)/usr/bin/mailq
+	/usr/bin/strip -S $(DSTROOT)/usr/libexec/postfix/nqmgr
+	if [ -e $(COMPRESS_PL) ]; then\
+		$(COMPRESS_PL) $(DSTROOT)/usr/share/man;\
+	fi
 	rm $(DSTROOT)/private/etc/postfix/makedefs.out
 
 pre-install : build
