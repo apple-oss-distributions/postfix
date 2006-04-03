@@ -36,7 +36,7 @@ $ProgramArgumentsKeyNS = NSString->stringWithCString_($ProgramArgumentsKey);
 $MasterValue = "master";
 $MasterValueNS = NSString->stringWithCString_($MasterValue);
 
-$ProgramArgumentsValue = NSArray->arrayWithObjects_( $MasterValueNS );
+$ProgramArgumentsValue = NSArray->arrayWithObject_( $MasterValueNS );
 
 $configDictNS->setObject_forKey_( NSNumber->numberWithBool_(0), $OnDemandKeyNS );
 
