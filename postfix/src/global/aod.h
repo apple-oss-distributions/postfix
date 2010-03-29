@@ -52,5 +52,6 @@ struct od_user_opts
 
 int aod_get_user_options	( const char *inUserID, struct od_user_opts *inOutOpts );
 int ads_get_user_options	( const char *inUserID, struct od_user_opts *inOutOpts );
+const char *ads_getpwnam ( const char *inUserID );
 
 #endif /* aod */

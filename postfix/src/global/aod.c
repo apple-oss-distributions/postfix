@@ -67,10 +67,12 @@ get_procno( const char *procname, int32_t *procno )
 {
 	kern_return_t		status;
 	security_token_t	token;
-	bool				lookAgain = false;
+	bool				lookAgain;
 	uid_t				uid;
 
 	do {
+		lookAgain = false;
+
     	if (_ds_running() == 0) return KERN_FAILURE;
     	if (_ds_port == MACH_PORT_NULL) return KERN_FAILURE;
 
@@ -105,7 +107,7 @@ ds_lookup( int32_t procno, kvbuf_t *request, kvarray_t **answer )
 {
 	kern_return_t			status;
 	security_token_t		token;
-	bool					lookAgain	= false;
+	bool					lookAgain;
 	uid_t					uid;
 	mach_msg_type_number_t	oolen		= 0;
 	vm_address_t			oobuf		= 0;
@@ -113,6 +115,8 @@ ds_lookup( int32_t procno, kvbuf_t *request, kvarray_t **answer )
 	mach_msg_type_number_t	illen		= 0;
 	
 	do {
+		lookAgain = false;
+
     	if ( _ds_running() == 0 ) return KERN_FAILURE;
     	if ( _ds_port == MACH_PORT_NULL ) return KERN_FAILURE;
 		if ( request == NULL ) return KERN_FAILURE;
@@ -165,8 +169,8 @@ ds_lookup( int32_t procno, kvbuf_t *request, kvarray_t **answer )
 	return status;
 }
 
-kvarray_t *
-getpwnam_ext( const char *name )
+static kvarray_t *
+getpwnam_ext_real( const char *name )
 {
 	static int32_t 			procno		= -1;
 	static int32_t			initProc	= -1;
@@ -174,8 +178,14 @@ getpwnam_ext( const char *name )
 	kvarray_t				*response	= NULL;
 	kern_return_t			status;
 	
-	if ( name == NULL ) return NULL;
-
+	if ( name == NULL ) {
+		/* reset cached state */
+		procno = -1;
+		initProc = -1;
+		setupList = FALSE;
+		return NULL;
+	}
+	
 	if ( procno == -1 ) {
 		status = get_procno( "getpwnam_ext", &procno );
 		if ( status != KERN_SUCCESS ) return NULL;
@@ -210,7 +220,10 @@ getpwnam_ext( const char *name )
 		kvbuf_add_val( reqTypes, kDS1AttrFirstName );
 		kvbuf_add_val( reqTypes, kDS1AttrLastName );
 		
-		ds_lookup( initProc, reqTypes, NULL );
+		status = ds_lookup( initProc, reqTypes, NULL );
+		kvbuf_free(reqTypes);
+		if ( status != KERN_SUCCESS ) return NULL;
+		setupList = TRUE;
 	}
 	
 	kvbuf_t *request = kvbuf_query_key_val( "login", name );
@@ -219,6 +232,25 @@ getpwnam_ext( const char *name )
 		kvbuf_free( request );
 	}
 	
+	return response;
+}
+
+kvarray_t *
+getpwnam_ext(const char *name)
+{
+	kvarray_t *response = NULL;
+
+	if (name != NULL) {
+		response = getpwnam_ext_real(name);
+		if (response == NULL) {
+			/* reset cached state */
+			(void) getpwnam_ext_real(NULL);
+
+			/* retry once */
+			response = getpwnam_ext_real(name);
+		}
+	}
+
 	return response;
 }
 /* End DS SPI Glue */
@@ -234,8 +266,20 @@ static const char *ds_get_value(const char *inUserID, const kvdict_t *in_dict, c
 				value = in_dict->val[i][0];
 			else if (in_dict->vcount[i] == 0)
 				msg_info("od[getpwnam_ext]: no value found for attribute %s in record for user %s", in_attr, inUserID);
-			else if (first_of_many)
-				value = in_dict->val[i][0];
+			else if (first_of_many) {
+				if ( strcmp(in_attr, "pw_name") )
+					value = in_dict->val[i][0];
+				else {
+					int32_t j;
+					value = in_dict->val[i][0];
+					for (j = 0; j < in_dict->vcount[i]; j++) {
+						if ( strchr(in_dict->val[i][j], '@') == 0 ) {
+							value = in_dict->val[i][j];
+							break;
+						}
+					}
+				}
+			}
 			else
 				msg_info("od[getpwnam_ext]: multiple values (%u) found for attribute %s in record for user %s", in_dict->vcount[i], in_attr, inUserID);
 			break;
@@ -245,6 +289,36 @@ static const char *ds_get_value(const char *inUserID, const kvdict_t *in_dict, c
 		msg_info("od[getpwnam_ext]: no attribute %s in record for user %s", in_attr, inUserID);
 
 	return value;
+}
+
+const char *ads_getpwnam ( const char *inUserID )
+{
+	kvarray_t *user_data;
+	static char rec_name[512];
+
+	assert(inUserID != NULL);
+	memset(rec_name, 0, sizeof rec_name);
+
+	errno = 0;
+	user_data = getpwnam_ext(inUserID);
+	if (user_data != NULL) {
+		if (user_data->count == 1) {
+			kvdict_t *user_dict = &user_data->dict[0];
+			const char *value = ds_get_value(inUserID, user_dict, "pw_name", TRUE);
+			if (value)
+				strlcpy(rec_name, value, sizeof rec_name);
+		} else if (user_data->count == 0)
+			msg_error("od[getpwnam_ext]: no record found for user %s", inUserID);
+		else
+			msg_error("od[getpwnam_ext]: multiple records (%u) found for user %s", user_data->count, inUserID);
+
+		kvarray_free(user_data);
+	} else if (errno)
+		msg_error("od[getpwnam_ext]: Unable to look up user record %s: %m", inUserID);
+
+	if (strlen(rec_name))
+		return(rec_name);
+	return( NULL );
 }
 
 int ads_get_user_options(const char *inUserID, struct od_user_opts *in_out_opts)
@@ -371,8 +445,10 @@ static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_default_st
 			if ( err_str != NULL )
 			{
 				syslog( LOG_ERR, "od: %s", err_str );
+				CFRelease(cf_str_ref);
 				return;
 			}
+			CFRelease(cf_str_ref);
 		}
 	}
 
