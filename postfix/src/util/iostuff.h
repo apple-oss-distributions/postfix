@@ -22,6 +22,9 @@ extern off_t get_file_limit(void);
 extern void set_file_limit(off_t);
 extern ssize_t peekfd(int);
 extern int read_wait(int, int);
+#ifdef __APPLE_OS_X_SERVER__
+extern int read_wait_no_poll(int fd, int timeout);
+#endif /* __APPLE_OS_X_SERVER__ */
 extern int write_wait(int, int);
 extern ssize_t write_buf(int, const char *, ssize_t, int);
 extern ssize_t timed_read(int, void *, size_t, int, void *);
@@ -36,11 +39,20 @@ extern int unix_send_fd(int, int);
 extern ssize_t dummy_read(int, void *, size_t, int, void *);
 extern ssize_t dummy_write(int, void *, size_t, int, void *);
 
+extern int inet_windowsize;
+extern void set_inet_windowsize(int, int);
+
 #define BLOCKING	0
 #define NON_BLOCKING	1
 
 #define CLOSE_ON_EXEC	1
 #define PASS_ON_EXEC	0
+
+extern int unix_pass_fd_fix;
+extern void set_unix_pass_fd_fix(const char *);
+
+#define UNIX_PASS_FD_FIX_NONE		(0)
+#define UNIX_PASS_FD_FIX_CMSG_LEN	(1<<0)
 
 /* LICENSE
 /* .ad

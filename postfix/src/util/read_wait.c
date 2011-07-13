@@ -15,7 +15,8 @@
 /*
 /*	Arguments:
 /* .IP fd
-/*	File descriptor in the range 0..FD_SETSIZE.
+/*	File descriptor in the range 0..FD_SETSIZE (on systems that
+/*	need to use select(2)).
 /* .IP timeout
 /*	If positive, deadline in seconds. A zero value effects a poll.
 /*	A negative value means wait until something happens.
@@ -133,3 +134,53 @@ int     read_wait(int fd, int timeout)
     }
 #endif
 }
+
+#ifdef __APPLE_OS_X_SERVER__
+/* read_wait - block with timeout until file descriptor is readable */
+
+int     read_wait_no_poll(int fd, int timeout)
+{
+    fd_set  read_fds;
+    fd_set  except_fds;
+    struct timeval tv;
+    struct timeval *tp;
+
+    /*
+     * Sanity checks.
+     */
+    if (FD_SETSIZE <= fd)
+	msg_panic("descriptor %d does not fit FD_SETSIZE %d", fd, FD_SETSIZE);
+
+    /*
+     * Use select() so we do not depend on alarm() and on signal() handlers.
+     * Restart the select when interrupted by some signal. Some select()
+     * implementations reduce the time to wait when interrupted, which is
+     * exactly what we want.
+     */
+    FD_ZERO(&read_fds);
+    FD_SET(fd, &read_fds);
+    FD_ZERO(&except_fds);
+    FD_SET(fd, &except_fds);
+    if (timeout >= 0) {
+	tv.tv_usec = 0;
+	tv.tv_sec = timeout;
+	tp = &tv;
+    } else {
+	tp = 0;
+    }
+
+    for (;;) {
+	switch (select(fd + 1, &read_fds, (fd_set *) 0, &except_fds, tp)) {
+	case -1:
+	    if (errno != EINTR)
+		msg_fatal("select: %m");
+	    continue;
+	case 0:
+	    errno = ETIMEDOUT;
+	    return (-1);
+	default:
+	    return (0);
+	}
+    }
+}
+#endif /* __APPLE_OS_X_SERVER__ */
