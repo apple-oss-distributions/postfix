@@ -93,6 +93,19 @@ static void own_inet_addr_init(INET_ADDR_LIST *addr_list,
     inet_addr_list_init(mask_list);
 
     /*
+     * Avoid run-time errors when all network protocols are disabled. We
+     * can't look up interface information, and we can't convert explicit
+     * names or addresses.
+     */
+    if (inet_proto_info()->ai_family_list[0] == 0) {
+	if (msg_verbose)
+	    msg_info("skipping %s setting - "
+		     "all network protocols are disabled",
+		     VAR_INET_INTERFACES);
+	return;
+    }
+
+    /*
      * If we are listening on all interfaces (default), ask the system what
      * the interfaces are.
      */
@@ -143,6 +156,11 @@ static void own_inet_addr_init(INET_ADDR_LIST *addr_list,
 	 * changed.
 	 */
 	inet_addr_list_uniq(addr_list);
+
+#ifdef __APPLE_OS_X_SERVER__
+	/* remove IPv6 scoped addresses */
+	inet_addr_list_clean(addr_list);
+#endif
 
 	/*
 	 * Find out the netmask for each virtual interface, by looking it up
