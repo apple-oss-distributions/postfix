@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>org.postfix.master</string>
+	<string>com.apple.postfix.master</string>
 	<key>Program</key>
 	<string>/usr/libexec/postfix/master</string>
 	<key>ProgramArguments</key>

@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>org.postfix.newaliases</string>
+	<string>com.apple.postfix.newaliases</string>
 	<key>Program</key>
 	<string>/usr/libexec/postfix/check-aliases.sh</string>
 	<key>ProgramArguments</key>
